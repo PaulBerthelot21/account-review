@@ -1,0 +1,12 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    public: false
+
+  Cordon\AccountReview\Command\AccountReviewCommand:
+    arguments:
+      $entityManager: '@doctrine.orm.entity_manager'
+      $serializer: '@serializer'
+    tags:
+      - { name: 'console.command' }

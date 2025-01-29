@@ -1,0 +1,30 @@
+{
+    "name": "cordon/account-review",
+    "description": "Un bundle Symfony pour la revue des comptes utilisateurs",
+    "type": "symfony-bundle",
+    "version": "1.0.0",
+    "autoload": {
+        "psr-4": {
+            "Cordon\\AccountReview\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Paul Berthelot",
+            "email": "paul.berthelot@cordongroup.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.4",
+        "symfony/console": "^4.4 || ^5.0 || ^6.0 || ^7.0",
+        "symfony/framework-bundle": "^4.4 || ^5.0 || ^6.0 || ^7.0",
+        "symfony/serializer": "^4.4 || ^5.0 || ^6.0 || ^7.0",
+        "symfony/property-access": "^4.4 || ^5.0 || ^6.0 || ^7.0",
+        "symfony/security-core": "^4.4 || ^5.0 || ^6.0 || ^7.0",
+        "symfony/mailer": "^4.4 || ^5.0 || ^6.0 || ^7.0",
+        "symfony/mime": "^4.4 || ^5.0 || ^6.0 || ^7.0",
+        "doctrine/orm": "^2.8 || ^3.0",
+        "doctrine/doctrine-bundle": "^1.12|^2.0"
+    },
+    "minimum-stability": "dev"
+}
