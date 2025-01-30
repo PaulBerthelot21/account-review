@@ -60,6 +60,17 @@ Un autre exemple pour utiliser un MailCatcher avec Docker :
 MAILER_DSN=smtp://host.docker.internal:1025
 ```
 
+### Configuration de l'entité
+
+Il est possible de configurer l'entité à utiliser pour l'extraction des données. Pour ce faire, ajoutez le tag `cordon.exportable_entity` à votre entité User depuis le fichier `services.yaml` :
+
+```yaml
+services:
+    App\Entity\User:
+      tags:
+        - { name: 'cordon.exportable_entity', alias: 'user' }
+```
+
 ## Utilisation
 
 Pour extraire les données des utilisateurs, exécutez la commande suivante :
@@ -75,9 +86,25 @@ La commande principale supporte plusieurs options :
 php bin/console app:account-review [options]
 ```
 **Options disponibles :**
+* --entity-tag ou -t : Tag de l'entité à utiliser pour l'extraction
 * --class ou -c : Classe d'entité User à utiliser (défaut: 'App\Entity\User')
 * --method ou -m : Méthode d'envoi des données (log, local, mail) (défaut: 'log')
 * --format ou -f : Format de sortie (json, csv, xml) (défaut: 'json')
+
+### Exemple
+
+Pour utiliser l'option **--entity-tag**, il faudra ajouter le tag à l'entité User 
+```bash
+php bin/console app:account-review --entity-tag=user --method=log --format=csv
+```
+
+Ou bien, pour utiliser l'option **--class** :
+
+```bash
+php bin/console app:account-review --class=App\Entity\User --method=log --format=xml
+```
+
+Si on utilise l'option **--entity-tag** et **--class** en même temps, c'est l'option **--entity-tag** qui sera prioritaire.
 
 ### Export local
 Pour sauvegarder les données dans un fichier local :

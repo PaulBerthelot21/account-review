@@ -75,9 +75,24 @@ The main command supports several options:
 php bin/console app:account-review [options]
 ```
 **Available Options:**
+* * --entity-tag or -t : Tag of the entity to use
 * --class or -c: User entity class to use (default: 'App\Entity\User')
 * --method or -m: Data sending method (log, local, mail) (default: 'log')
 * --format or -f: Output format (json, csv, xml) (default: 'json')
+
+### Example
+
+To use the **--entity-tag** option, you need to add the tag to the User entity:
+```bash
+php bin/console app:account-review --entity-tag=user --method=log --format=csv
+``` 
+
+Or you can use the **--class** option to specify the User entity class:
+```bash
+php bin/console app:account-review --class=App\Entity\User --method=log --format=csv
+```
+
+If both the **--entity-tag** and **--class** options are used simultaneously, the **--entity-tag** option will take precedence.
 
 ### Local Export
 To save data to a local file:

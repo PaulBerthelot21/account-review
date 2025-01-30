@@ -2,6 +2,7 @@
 
 namespace Cordon\AccountReview\Command;
 
+use Cordon\AccountReview\EntityLocator;
 use Doctrine\ORM\EntityManagerInterface;
 use InvalidArgumentException;
 use Symfony\Component\Console\Command\Command;
@@ -21,16 +22,19 @@ class AccountReviewCommand extends Command
     private $entityManager;
     private $serializer;
     private $mailer;
+    private $entityLocator;
 
     public function __construct(EntityManagerInterface $entityManager,
-                                SerializerInterface $serializer,
-                                MailerInterface $mailer
+                                SerializerInterface    $serializer,
+                                MailerInterface        $mailer,
+                                EntityLocator $entityLocator
     )
     {
         parent::__construct();
         $this->entityManager = $entityManager;
         $this->serializer = $serializer;
         $this->mailer = $mailer;
+        $this->entityLocator = $entityLocator;
     }
 
     protected function configure()
@@ -44,6 +48,12 @@ class AccountReviewCommand extends Command
                 InputOption::VALUE_OPTIONAL,
                 'Nom de la classe User à utiliser pour l\'extraction',
                 'App\Entity\User'
+            )
+            ->addOption(
+                'entity-tag',
+                't',
+                InputOption::VALUE_OPTIONAL,
+                'Tag de l\'entité à utiliser pour l\'extraction'
             )
             ->addOption(
                 'method',
@@ -85,41 +95,60 @@ class AccountReviewCommand extends Command
         $io = new SymfonyStyle($input, $output);
 
         try {
-            $repository = $this->entityManager->getRepository($input->getOption('class'));
-            $queryBuilder = $repository->createQueryBuilder('u');
+            $entityClass = $this->resolveEntityClass($input, $io);
+
+            $repository = $this->entityManager->getRepository($entityClass);
+            $queryBuilder = $repository->createQueryBuilder('u')
+                ->orderBy('u.id', 'ASC');
             $users = $queryBuilder->getQuery()->getResult();
 
+            if (empty($users)) {
+                $io->warning('Aucune donnée trouvée pour cette entité.');
+                return 0; // Command::SUCCESS
+            }
+
             $extractedData = [];
+            $metadata = $this->entityManager->getClassMetadata(get_class($users[0])); // Récupération des métadonnées
+
             foreach ($users as $user) {
-                $userData = [
-                    'id' => method_exists($user, 'getId') ? $user->getId() : null,
-                    'email' => method_exists($user, 'getEmail') ? $user->getEmail() : null,
-                    'login' => method_exists($user, 'getLogin') ? $user->getLogin() :
-                        (method_exists($user, 'getUsername') ? $user->getUsername() : null),
-                    'nom' => method_exists($user, 'getNom') ? $user->getNom() :
-                        (method_exists($user, 'getLastName') ? $user->getLastName() : null),
-                    'prenom' => method_exists($user, 'getPrenom') ? $user->getPrenom() :
-                        (method_exists($user, 'getFirstName') ? $user->getFirstName() : null),
-                    'roles' => method_exists($user, 'getRoles') ? $user->getRoles() : [],
-                ];
+                $userData = [];
 
-                if (method_exists($user, 'getLastLogin')) {
-                    $lastLogin = $user->getLastLogin();
-                    $userData['lastLogin'] = $lastLogin instanceof \DateTimeInterface
-                        ? $lastLogin->format('Y-m-d H:i:s')
-                        : null;
+                // Extraction dynamique des champs scalaires
+                foreach ($metadata->getFieldNames() as $field) {
+                    $getter = 'get' . ucfirst($field);
+                    if (method_exists($user, $getter)) {
+                        $value = $user->$getter();
+
+                        // Si la valeur est un objet DateTime, on la formate
+                        if ($value instanceof \DateTimeInterface) {
+                            $value = $value->format('Y-m-d H:i:s');
+                        }
+
+                        $userData[$field] = $value;
+                    }
                 }
 
-                if (method_exists($user, 'getCreatedAt')) {
-                    $createdAt = $user->getCreatedAt();
-                    $userData['createdAt'] = $createdAt instanceof \DateTimeInterface
-                        ? $createdAt->format('Y-m-d H:i:s')
-                        : null;
+                // Extraction dynamique des relations (ex: ManyToOne, OneToOne)
+                foreach ($metadata->getAssociationNames() as $association) {
+                    $getter = 'get' . ucfirst($association);
+                    if (method_exists($user, $getter)) {
+                        $relatedEntity = $user->$getter();
+
+                        // Cas ManyToOne / OneToOne : on récupère l'ID
+                        if (is_object($relatedEntity) && method_exists($relatedEntity, 'getId')) {
+                            $userData[$association] = $relatedEntity->getId();
+                        }
+
+                        // Cas OneToMany / ManyToMany : on récupère une liste d'IDs
+                        elseif ($relatedEntity instanceof \Doctrine\Common\Collections\Collection) {
+                            $userData[$association] = $relatedEntity
+                                ->map(fn($e) => method_exists($e, 'getId') ? $e->getId() : null)
+                                ->filter(fn($id) => $id !== null) // On enlève les éventuels `null`
+                                ->toArray();
+                        }
+                    }
                 }
 
-                if (method_exists($user, 'isActive')) {
-                    $userData['isActive'] = $user->isActive();
-                }
 
                 $extractedData[] = $userData;
             }
@@ -145,6 +174,24 @@ class AccountReviewCommand extends Command
             $io->error('Une erreur est survenue lors de l\'extraction : ' . $e->getMessage());
             return 1; // Command::FAILURE
         }
+    }
+
+    private function resolveEntityClass(InputInterface $input, SymfonyStyle $io): string
+    {
+        $entityTag = $input->getOption('entity-tag');
+        $className = $input->getOption('class');
+
+        if ($entityTag) {
+            $className = $this->entityLocator->getEntityClass($entityTag);
+        }
+
+        if (!class_exists($className)) {
+            throw new InvalidArgumentException(
+                sprintf('La classe "%s" n\'existe pas.', $className)
+            );
+        }
+
+        return $className;
     }
 
     private function handleMailMethod(InputInterface $input, OutputInterface $output, string $content, string $format)
