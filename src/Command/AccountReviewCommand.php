@@ -110,6 +110,10 @@ class AccountReviewCommand extends Command
             $extractedData = [];
             $metadata = $this->entityManager->getClassMetadata(get_class($users[0])); // Récupération des métadonnées
 
+            $io->success(sprintf('Extraction de %d utilisateurs', count($users)));
+            $io->info(sprintf('Classe : %s', $metadata->getName()));
+            $io->progressStart(count($users));
+
             foreach ($users as $user) {
                 $userData = [];
 
@@ -123,7 +127,6 @@ class AccountReviewCommand extends Command
                         if ($value instanceof \DateTimeInterface) {
                             $value = $value->format('Y-m-d H:i:s');
                         }
-
                         $userData[$field] = $value;
                     }
                 }
@@ -133,6 +136,12 @@ class AccountReviewCommand extends Command
                     $getter = 'get' . ucfirst($association);
                     if (method_exists($user, $getter)) {
                         $relatedEntity = $user->$getter();
+
+                        if ($relatedEntity === null) {
+                            // Log ou message d'erreur
+                            $io->warning(sprintf('L\'association %s est vide pour l\'utilisateur %d', $association, $user->getId()));
+                            continue; // Passer à l'association suivante
+                        }
 
                         // Cas ManyToOne / OneToOne : on récupère l'ID
                         if (is_object($relatedEntity) && method_exists($relatedEntity, 'getId')) {
@@ -146,12 +155,16 @@ class AccountReviewCommand extends Command
                                 ->filter(fn($id) => $id !== null) // On enlève les éventuels `null`
                                 ->toArray();
                         }
+                    } else {
+                        // Log ou message d'erreur
+                        $io->warning(sprintf('La méthode %s n\'existe pas pour l\'association %s', $getter, $association));
                     }
                 }
-
-
+                $io->progressAdvance();
                 $extractedData[] = $userData;
             }
+
+            $io->progressFinish();
 
             $format = $input->getOption('format');
             $content = $this->serializeData($extractedData, $format);
