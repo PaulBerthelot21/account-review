@@ -111,7 +111,7 @@ class AccountReviewCommand extends Command
             $metadata = $this->entityManager->getClassMetadata(get_class($users[0])); // Récupération des métadonnées
 
             $io->success(sprintf('Extraction de %d utilisateurs', count($users)));
-            $io->info(sprintf('Classe : %s', $metadata->getName()));
+            $io->note(sprintf('Classe : %s', $metadata->getName()));
             $io->progressStart(count($users));
 
             foreach ($users as $user) {
