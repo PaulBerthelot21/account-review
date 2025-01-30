@@ -11,7 +11,6 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.entity_manager'
       $serializer: '@serializer'
-      $mailer: '@mailer'
       $entityLocator: '@cordon.account_review.entity_locator'
     tags:
       - { name: 'console.command' }
