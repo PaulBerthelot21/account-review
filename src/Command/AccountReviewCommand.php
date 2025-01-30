@@ -130,36 +130,6 @@ class AccountReviewCommand extends Command
                         $userData[$field] = $value;
                     }
                 }
-
-                // Extraction dynamique des relations (ex: ManyToOne, OneToOne)
-                foreach ($metadata->getAssociationNames() as $association) {
-                    $getter = 'get' . ucfirst($association);
-                    if (method_exists($user, $getter)) {
-                        $relatedEntity = $user->$getter();
-
-                        if ($relatedEntity === null) {
-                            // Log ou message d'erreur
-                            $io->warning(sprintf('L\'association %s est vide pour l\'utilisateur %d', $association, $user->getId()));
-                            continue; // Passer à l'association suivante
-                        }
-
-                        // Cas ManyToOne / OneToOne : on récupère l'ID
-                        if (is_object($relatedEntity) && method_exists($relatedEntity, 'getId')) {
-                            $userData[$association] = $relatedEntity->getId();
-                        }
-
-                        // Cas OneToMany / ManyToMany : on récupère une liste d'IDs
-                        elseif ($relatedEntity instanceof \Doctrine\Common\Collections\Collection) {
-                            $userData[$association] = $relatedEntity
-                                ->map(fn($e) => method_exists($e, 'getId') ? $e->getId() : null)
-                                ->filter(fn($id) => $id !== null) // On enlève les éventuels `null`
-                                ->toArray();
-                        }
-                    } else {
-                        // Log ou message d'erreur
-                        $io->warning(sprintf('La méthode %s n\'existe pas pour l\'association %s', $getter, $association));
-                    }
-                }
                 $io->progressAdvance();
                 $extractedData[] = $userData;
             }
