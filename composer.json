@@ -2,7 +2,6 @@
     "name": "cordon/account-review",
     "description": "Un bundle Symfony pour la revue des entités.",
     "type": "symfony-bundle",
-    "version": "1.0.0-prod",
     "autoload": {
         "psr-4": {
             "Cordon\\AccountReview\\": "src/"
@@ -32,11 +31,15 @@
         "account",
         "mail",
         "email",
-        "ISO 27001",
         "security",
         "review",
         "user",
         "Symfony",
         "bundle"
-    ]
+    ],
+    "extra": {
+        "symfony": {
+            "allow-contrib": false
+        }
+    }
 }
