@@ -148,13 +148,19 @@ class AccountReviewCommand extends Command
                 }
             }
 
+            // Extraction des associations
+            $associations = $metadata->associationMappings;
+            var_dump($associations); // Pour voir toutes les associations disponibles
+
             // Extraction des relations (ManyToOne, OneToOne, ManyToMany, OneToMany)
             foreach ($metadata->associationMappings as $association => $mapping) {
 
                 $io->note(sprintf('Association: %s', $association));
+                $io->note(sprintf('Association: %s, Type: %s', $association, $mapping['type']));
 
                 // On ne traite que les associations qui existent dans les métadonnées
                 if (!array_key_exists($association, $metadata->associationMappings)) {
+                    $io->warning(sprintf('Association inconnue: %s', $association));
                     continue;
                 }
 
@@ -164,6 +170,7 @@ class AccountReviewCommand extends Command
 
                 $getter = 'get' . ucfirst($association);
                 if (!method_exists($entity, $getter)) {
+                    $io->warning(sprintf('Méthode d\'accès manquante pour l\'association: %s', $association));
                     continue;
                 }
 
