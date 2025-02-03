@@ -136,11 +136,17 @@ class AccountReviewCommand extends Command
         $io->note(sprintf('Classe : %s', $metadata->getName()));
         $io->progressStart(count($users));
 
+        $excludedFields = $this->entityLocator->getExcludedFields($entityClass);
+
         foreach ($users as $user) {
             $userData = [];
 
             // Extraction dynamique des champs scalaires
             foreach ($metadata->getFieldNames() as $field) {
+                if (in_array($field, $excludedFields)) {
+                    continue;
+                }
+
                 $getter = 'get' . ucfirst($field);
                 if (method_exists($user, $getter)) {
                     $value = $user->$getter();
