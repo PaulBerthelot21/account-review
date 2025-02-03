@@ -28,7 +28,7 @@ Ensuite, activez le bundle en ajoutant les lignes suivantes dans le fichier `con
 ```php
 return [
     // ...
-    Cordon\AccountReview\CordonAccountReviewBundle::class => ['all' => true],
+    Cordon\AccountReview\AccountReviewBundle::class => ['all' => true],
 ];
 ```
 

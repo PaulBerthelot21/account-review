@@ -6,9 +6,9 @@ class EntityLocator
 {
     private array $exportableEntities = [];
 
-    public function addExportableEntity(string $alias, string $className): void
+    public function addExportableEntity(string $className): void
     {
-        $this->exportableEntities[$alias] = $className;
+        $this->exportableEntities[] = $className;
     }
 
     public function getExportableEntities(): array
@@ -16,8 +16,8 @@ class EntityLocator
         return $this->exportableEntities;
     }
 
-    public function getEntityClass(string $alias): ?string
+    public function getEntityClass(string $className): ?string
     {
-        return $this->exportableEntities[$alias] ?? null;
+        return in_array($className, $this->exportableEntities) ? $className : null;
     }
 }

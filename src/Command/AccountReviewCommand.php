@@ -17,7 +17,7 @@ use Symfony\Component\Mime\Email;
 class AccountReviewCommand extends Command
 {
     protected static $defaultName = 'app:account-review';
-    protected static $defaultDescription = 'Extrait les données des utilisateurs pour l\'audit ISO 27001';
+    protected static $defaultDescription = 'Extrait les données des entités';
 
     private $entityManager;
     private $serializer;
@@ -27,7 +27,7 @@ class AccountReviewCommand extends Command
     public function __construct(EntityManagerInterface $entityManager,
                                 SerializerInterface    $serializer,
                                 MailerInterface        $mailer,
-                                EntityLocator $entityLocator
+                                EntityLocator          $entityLocator
     )
     {
         parent::__construct();
@@ -46,14 +46,7 @@ class AccountReviewCommand extends Command
                 'class',
                 'c',
                 InputOption::VALUE_OPTIONAL,
-                'Nom de la classe User à utiliser pour l\'extraction',
-                'App\Entity\User'
-            )
-            ->addOption(
-                'entity-tag',
-                't',
-                InputOption::VALUE_OPTIONAL,
-                'Tag de l\'entité à utiliser pour l\'extraction'
+                'Nom de la classe à utiliser pour l\'extraction',
             )
             ->addOption(
                 'method',
@@ -68,12 +61,6 @@ class AccountReviewCommand extends Command
                 InputOption::VALUE_OPTIONAL,
                 'Format de sortie (json, csv, xml)',
                 'json'
-            )
-            ->addOption(
-                'output',
-                'o',
-                InputOption::VALUE_OPTIONAL,
-                'Chemin du fichier de sortie'
             )
             ->addOption(
                 'emitter',
@@ -95,61 +82,9 @@ class AccountReviewCommand extends Command
         $io = new SymfonyStyle($input, $output);
 
         try {
-            $entityClass = $this->resolveEntityClass($input, $io);
-
-            $repository = $this->entityManager->getRepository($entityClass);
-            $queryBuilder = $repository->createQueryBuilder('u')
-                ->orderBy('u.id', 'ASC');
-            $users = $queryBuilder->getQuery()->getResult();
-
-            if (empty($users)) {
-                $io->warning('Aucune donnée trouvée pour cette entité.');
-                return 0; // Command::SUCCESS
-            }
-
-            $extractedData = [];
-            $metadata = $this->entityManager->getClassMetadata(get_class($users[0])); // Récupération des métadonnées
-
-            $io->success(sprintf('Extraction de %d utilisateurs', count($users)));
-            $io->note(sprintf('Classe : %s', $metadata->getName()));
-            $io->progressStart(count($users));
-
-            foreach ($users as $user) {
-                $userData = [];
-
-                // Extraction dynamique des champs scalaires
-                foreach ($metadata->getFieldNames() as $field) {
-                    $getter = 'get' . ucfirst($field);
-                    if (method_exists($user, $getter)) {
-                        $value = $user->$getter();
-
-                        // Si la valeur est un objet DateTime, on la formate
-                        if ($value instanceof \DateTimeInterface) {
-                            $value = $value->format('Y-m-d H:i:s');
-                        }
-                        $userData[$field] = $value;
-                    }
-                }
-                $io->progressAdvance();
-                $extractedData[] = $userData;
-            }
-
-            $io->progressFinish();
-
-            $format = $input->getOption('format');
-            $content = $this->serializeData($extractedData, $format);
-
-            $method = $input->getOption('method');
-            switch ($method) {
-                case 'mail':
-                    $this->handleMailMethod($input, $output, $content, $format);
-                    break;
-                case 'local':
-                    $this->handleLocalMethod($input, $output, $content, $format);
-                    break;
-                case 'log':
-                default:
-                    $output->write($content);
+            $entitiesClasses = $this->resolveEntityClass($input, $io);
+            foreach ($entitiesClasses as $entityClass) {
+                $this->extractData($input, $output, $io, $entityClass);
             }
             return 0; // Command::SUCCESS
 
@@ -159,25 +94,89 @@ class AccountReviewCommand extends Command
         }
     }
 
-    private function resolveEntityClass(InputInterface $input, SymfonyStyle $io): string
+    private function resolveEntityClass(InputInterface $input, SymfonyStyle $io): array
     {
-        $entityTag = $input->getOption('entity-tag');
-        $className = $input->getOption('class');
+        // Tableau des entités à exporter
+        $entities = [];
 
-        if ($entityTag) {
-            $className = $this->entityLocator->getEntityClass($entityTag);
+        // Récupération de l'option --class
+        $classNameInput = $input->getOption('class');
+
+        // Récupération des entités exportables configurées dans le service.yml
+        $availableEntities = $this->entityLocator->getExportableEntities();
+
+        // Si l'option --class est renseignée, on tente de récupérer la classe correspondante
+        if ($classNameInput) {
+            $entities[] = $this->entityLocator->getEntityClass($classNameInput);
+        } else {
+            // Sinon, on récupère toutes les entités exportables
+            $entities = $availableEntities;
         }
 
-        if (!class_exists($className)) {
-            throw new InvalidArgumentException(
-                sprintf('La classe "%s" n\'existe pas.', $className)
-            );
-        }
-
-        return $className;
+        return $entities;
     }
 
-    private function handleMailMethod(InputInterface $input, OutputInterface $output, string $content, string $format)
+    private function extractData(InputInterface $input, OutputInterface $output, SymfonyStyle $io,
+                                 string         $entityClass): void
+    {
+        $repository = $this->entityManager->getRepository($entityClass);
+        $queryBuilder = $repository->createQueryBuilder('u')
+            ->orderBy('u.id', 'ASC');
+        $users = $queryBuilder->getQuery()->getResult();
+
+        if (empty($users)) {
+            $io->warning('Aucune donnée trouvée pour cette entité.');
+            return;
+        }
+
+        $extractedData = [];
+        $metadata = $this->entityManager->getClassMetadata(get_class($users[0])); // Récupération des métadonnées
+
+        $io->success(sprintf('Extraction de %d utilisateurs', count($users)));
+        $io->note(sprintf('Classe : %s', $metadata->getName()));
+        $io->progressStart(count($users));
+
+        foreach ($users as $user) {
+            $userData = [];
+
+            // Extraction dynamique des champs scalaires
+            foreach ($metadata->getFieldNames() as $field) {
+                $getter = 'get' . ucfirst($field);
+                if (method_exists($user, $getter)) {
+                    $value = $user->$getter();
+
+                    // Si la valeur est un objet DateTime, on la formate
+                    if ($value instanceof \DateTimeInterface) {
+                        $value = $value->format('Y-m-d H:i:s');
+                    }
+                    $userData[$field] = $value;
+                }
+            }
+            $io->progressAdvance();
+            $extractedData[] = $userData;
+        }
+
+        $io->progressFinish();
+
+        $format = $input->getOption('format');
+        $content = $this->serializeData($extractedData, $format);
+
+        $method = $input->getOption('method');
+        switch ($method) {
+            case 'mail':
+                $this->handleMailMethod($input, $output, $content, $format, $entityClass);
+                break;
+            case 'local':
+                $this->handleLocalMethod($input, $output, $content, $format, $entityClass);
+                break;
+            case 'log':
+            default:
+                $output->write($content);
+        }
+    }
+
+    private function handleMailMethod(InputInterface $input, OutputInterface $output, string $content, string $format,
+                                      string         $entityClass)
     {
         $io = new SymfonyStyle($input, $output);
         $recipient = $input->getOption('recipient');
@@ -189,13 +188,16 @@ class AccountReviewCommand extends Command
             );
         }
 
+        // Récupération du nom de la classe sans le namespace
+        $className = substr(strrchr($entityClass, "\\"), 1);
+
         $timestamp = date('Y-m-d_H-i-s');
-        $fileName = sprintf('accounts_review_%s.%s', $timestamp, $format);
+        $fileName = sprintf('accounts_review_%s_%s.%s', $className, $timestamp, $format);
 
         $email = (new Email())
             ->from($emitter)
             ->to($recipient)
-            ->subject(sprintf('Revue de compte utilisateurs - Export %s', date('d/m/Y')))
+            ->subject(sprintf('Revue de compte %s - Export %s', $className, date('d/m/Y')))
             ->text('Veuillez trouver ci-joint l\'export des données utilisateurs.')
             ->attach($content, $fileName, sprintf('application/%s', $format));
 
@@ -203,16 +205,16 @@ class AccountReviewCommand extends Command
         $io->success(sprintf('Les données ont été envoyées par email à %s', $recipient));
     }
 
-    private function handleLocalMethod(InputInterface $input, OutputInterface $output, string $content, string $format)
+    private function handleLocalMethod(InputInterface $input, OutputInterface $output, string $content, string $format,
+                                       string         $entityClass)
     {
         $io = new SymfonyStyle($input, $output);
-        $outputPath = $input->getOption('output');
 
-        if (!$outputPath) {
-            throw new InvalidArgumentException(
-                'L\'option --output est requise pour l\'export local'
-            );
-        }
+        // Extraction du court nom de la classe (sans le namespace)
+        $className = substr(strrchr($entityClass, "\\"), 1);
+        $timestamp = date('Y-m-d_H-i-s');
+
+        $outputPath = sprintf('accounts_review_%s_%s.%s', $className, $timestamp, $format);
 
         file_put_contents($outputPath, $content);
         $io->success(sprintf('Les données ont été exportées dans %s au format %s', $outputPath, $format));

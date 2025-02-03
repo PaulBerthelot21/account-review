@@ -14,11 +14,8 @@ class ExportableEntityPass implements CompilerPassInterface
         $entities = $container->findTaggedServiceIds('cordon.exportable_entity');
 
         foreach ($entities as $id => $tags) {
-            foreach ($tags as $tag) {
-                $alias = $tag['alias'] ?? $id;
-                $className = $container->getDefinition($id)->getClass();
-                $locator->addMethodCall('addExportableEntity', [$alias, $className]);
-            }
+            $className = $container->getDefinition($id)->getClass();
+            $locator->addMethodCall('addExportableEntity', [$className, $className]);
         }
     }
 }
