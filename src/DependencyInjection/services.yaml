@@ -6,6 +6,8 @@ services:
 
   cordon.account_review.entity_locator:
     class: Cordon\AccountReview\EntityLocator
+    arguments:
+      $config: '%cordon_account_review.config%'
 
   Cordon\AccountReview\Command\AccountReviewCommand:
     arguments:
