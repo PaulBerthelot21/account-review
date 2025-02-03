@@ -113,26 +113,22 @@ class AccountReviewCommand extends Command
                                  string         $entityClass): void
     {
         $repository = $this->entityManager->getRepository($entityClass);
-        $queryBuilder = $repository->createQueryBuilder('u')
-            ->orderBy('u.id', 'ASC');
-        $users = $queryBuilder->getQuery()->getResult();
+        $queryBuilder = $repository->createQueryBuilder('e')->orderBy('e.id', 'ASC');
+        $entities = $queryBuilder->getQuery()->getResult();
 
-        if (empty($users)) {
+        if (empty($entities)) {
             $io->warning('Aucune donnée trouvée pour cette entité.');
             return;
         }
 
         $extractedData = [];
-        $metadata = $this->entityManager->getClassMetadata(get_class($users[0])); // Récupération des métadonnées
-
-        $io->success(sprintf('Extraction de %d utilisateurs', count($users)));
-        $io->note(sprintf('Classe : %s', $metadata->getName()));
-        $io->progressStart(count($users));
+        $metadata = $this->entityManager->getClassMetadata($entityClass);
 
         $excludedFields = $this->entityLocator->getExcludedFields($entityClass);
+        $io->progressStart(count($entities));
 
-        foreach ($users as $user) {
-            $userData = [];
+        foreach ($entities as $entity) {
+            $entityData = [];
 
             // Extraction dynamique des champs scalaires
             foreach ($metadata->getFieldNames() as $field) {
@@ -141,18 +137,48 @@ class AccountReviewCommand extends Command
                 }
 
                 $getter = 'get' . ucfirst($field);
-                if (method_exists($user, $getter)) {
-                    $value = $user->$getter();
+                if (method_exists($entity, $getter)) {
+                    $value = $entity->$getter();
 
                     // Si la valeur est un objet DateTime, on la formate
                     if ($value instanceof \DateTimeInterface) {
                         $value = $value->format('Y-m-d H:i:s');
                     }
-                    $userData[$field] = $value;
+                    $entityData[$field] = $value;
                 }
             }
+
+            // Extraction des relations (ManyToOne, OneToOne, ManyToMany, OneToMany)
+            foreach ($metadata->associationMappings as $association => $mapping) {
+                if (in_array($association, $excludedFields, true)) {
+                    continue;
+                }
+
+                $getter = 'get' . ucfirst($association);
+                if (!method_exists($entity, $getter)) {
+                    continue;
+                }
+
+                $relatedEntity = $entity->$getter();
+
+                // Gestion des relations ManyToOne et OneToOne (relation unique)
+                if ($relatedEntity !== null && ($mapping['type'] === \Doctrine\ORM\Mapping\ClassMetadata::MANY_TO_ONE ||
+                        $mapping['type'] === \Doctrine\ORM\Mapping\ClassMetadata::ONE_TO_ONE)) {
+                    $entityData[$association] = method_exists($relatedEntity, '__toString') ? (string)$relatedEntity : $relatedEntity->getId();
+                }
+
+                // Gestion des relations OneToMany et ManyToMany (collection)
+                elseif ($relatedEntity instanceof \Doctrine\Common\Collections\Collection) {
+                    $entityData[$association] = [];
+
+                    foreach ($relatedEntity as $relatedItem) {
+                        $entityData[$association][] = method_exists($relatedItem, '__toString') ? (string)$relatedItem : $relatedItem->getId();
+                    }
+                }
+            }
+
             $io->progressAdvance();
-            $extractedData[] = $userData;
+            $extractedData[] = $entityData;
         }
 
         $io->progressFinish();
