@@ -43,12 +43,6 @@ class AccountReviewCommand extends Command
             ->setName(self::$defaultName)
             ->setDescription(self::$defaultDescription)
             ->addOption(
-                'class',
-                'c',
-                InputOption::VALUE_OPTIONAL,
-                'Nom de la classe à utiliser pour l\'extraction',
-            )
-            ->addOption(
                 'method',
                 'm',
                 InputOption::VALUE_OPTIONAL,
@@ -96,21 +90,20 @@ class AccountReviewCommand extends Command
 
     private function resolveEntityClass(InputInterface $input, SymfonyStyle $io): array
     {
-        // Tableau des entités à exporter
-        $entities = [];
-
-        // Récupération de l'option --class
-        $classNameInput = $input->getOption('class');
-
         // Récupération des entités exportables configurées dans le service.yml
-        $availableEntities = $this->entityLocator->getExportableEntities();
+        $entities = $this->entityLocator->getExportableEntities();
 
-        // Si l'option --class est renseignée, on tente de récupérer la classe correspondante
-        if ($classNameInput) {
-            $entities[] = $this->entityLocator->getEntityClass($classNameInput);
-        } else {
-            // Sinon, on récupère toutes les entités exportables
-            $entities = $availableEntities;
+        if (empty($entities)) {
+            $defaultEntity = 'App\Entity\User';
+            $io->warning(sprintf('Aucune entité exportable trouvée. Utilisation de l\'entité par défaut : %s', $defaultEntity));
+
+            if (class_exists($defaultEntity)) {
+                $entities[] = $defaultEntity;
+            } else {
+                throw new \InvalidArgumentException(
+                    sprintf('L\'entité par défaut %s n\'existe pas. Vérifiez votre configuration.', $defaultEntity)
+                );
+            }
         }
 
         return $entities;

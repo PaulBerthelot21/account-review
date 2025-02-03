@@ -1,6 +1,7 @@
 # AccountReview
 
-**AccountReview** est un bundle Symfony conçu pour extraire les données des utilisateurs dans le cadre d'un audit ISO 27001. Il offre des fonctionnalités pour récupérer et exporter les informations des utilisateurs dans différents formats (JSON, CSV, XML).
+**AccountReview** est un bundle Symfony conçu pour extraire les données des entités. Il offre des fonctionnalités pour
+récupérer et exporter les informations dans différents formats (JSON, CSV, XML).
 
 ## Table des matières
 
@@ -10,9 +11,9 @@
 - [Configuration](#configuration)
     - [Configuration du Mailer](#configuration-du-mailer)
 - [Utilisation](#utilisation)
-  - [Options de base](#options-de-base)
-  - [Export local](#export-local)
-  - [Envoi par mail](#envoi-par-email)
+    - [Options de base](#options-de-base)
+    - [Export local](#export-local)
+    - [Envoi par mail](#envoi-par-email)
 - [Commandes](#commandes)
 
 ## Installation
@@ -43,11 +44,13 @@ return [
 
 Le bundle est compatible de la version 4.4 à 7.0 de Symfony.
 
-La nécessité de la compatibilité des versions Symfony 4.4 à 7.0 a pour conséquence de ne pas utiliser les nouvelles fonctionnalités de Symfony 5.0 et 6.0.
+La nécessité de la compatibilité des versions Symfony 4.4 à 7.0 a pour conséquence de ne pas utiliser les nouvelles
+fonctionnalités de Symfony 5.0 et 6.0.
 
 ## Configuration
 
 ### Configuration du Mailer
+
 Pour utiliser la fonctionnalité d'envoi par email, configurez le DSN du mailer dans votre fichier .env :
 
 ```dotenv
@@ -62,13 +65,34 @@ MAILER_DSN=smtp://host.docker.internal:1025
 
 ### Configuration de l'entité
 
-Il est possible de configurer l'entité à utiliser pour l'extraction des données. Pour ce faire, ajoutez le tag `cordon.exportable_entity` à votre entité User depuis le fichier `services.yaml` :
+Il est possible de configurer une à plusieurs entités pour l'extraction des données. Pour ce faire, ajoutez le tag
+`cordon.exportable_entity` à chaque entité depuis le fichier `services.yaml` :
 
 ```yaml
 services:
-    App\Entity\User:
-      tags:
-        - { name: 'cordon.exportable_entity', alias: 'user' }
+  App\Entity\User:
+    tags:
+      - { name: 'cordon.exportable_entity' }
+
+  App\Entity\Customer:
+    tags:
+      - { name: 'cordon.exportable_entity' }
+```
+
+### Exclure des propriétés
+
+Vous pouvez exclure des propriétés de chaque entité depuis le fichier `services.yaml` :
+
+```yaml
+cordon.account_review.entity_locator:
+  class: Cordon\AccountReview\EntityLocator
+    arguments:
+      $config:
+        entities:
+          App\Entity\User:
+            exclude_fields: [ 'roles', 'password', '...' ]
+          App\Entity\Customer:  
+            exclude_fields: [ 'imageName', '...' ]
 ```
 
 ## Utilisation
@@ -82,38 +106,32 @@ php bin/console app:account-review
 ### Options de base
 
 La commande principale supporte plusieurs options :
+
 ```
 php bin/console app:account-review [options]
 ```
+
 **Options disponibles :**
-* --entity-tag ou -t : Tag de l'entité à utiliser pour l'extraction
-* --class ou -c : Classe d'entité User à utiliser (défaut: 'App\Entity\User')
+
 * --method ou -m : Méthode d'envoi des données (log, local, mail) (défaut: 'log')
 * --format ou -f : Format de sortie (json, csv, xml) (défaut: 'json')
 
-### Exemple
+### Export par défaut
 
-Pour utiliser l'option **--entity-tag**, il faudra ajouter le tag à l'entité User 
-```bash
-php bin/console app:account-review --entity-tag=user --method=log --format=csv
-```
-
-Ou bien, pour utiliser l'option **--class** :
-
-```bash
-php bin/console app:account-review --class=App\Entity\User --method=log --format=xml
-```
-
-Si on utilise l'option **--entity-tag** et **--class** en même temps, c'est l'option **--entity-tag** qui sera prioritaire.
+La commande par défaut exporte les données des utilisateurs dans la console en format JSON.
 
 ### Export local
-Pour sauvegarder les données dans un fichier local :
+
+Pour sauvegarder les données dans un dossier local :
 
 ```bash
-php bin/console app:account-review --method=local --format=json --output=users.json
+php bin/console app:account-review --method=local --format=json
 ```
 
+_Les fichiers seront enregistrés dans le dossier racine du projet._
+
 ### Envoi par email
+
 Pour envoyer les données par email :
 
 ```bash
@@ -121,8 +139,9 @@ php bin/console app:account-review --method=mail --format=csv --recipient=audit@
 ```
 
 **Options spécifiques à l'email :**
+
 * --recipient ou -r : Adresse email du destinataire
-* --emitter ou -em : Adresse email de l'émetteur (défaut : 'no-reply@account-review.com')
+* --emitter ou -em : Adresse email de l'émetteur (défaut: 'no-reply@account-review.com')
 
 ## Commandes
 
@@ -133,4 +152,5 @@ php bin/console app:account-review --help
 ```
 
 ## Licence
+
 Ce bundle est sous licence MIT.
