@@ -148,14 +148,9 @@ class AccountReviewCommand extends Command
                 }
             }
 
-            // Extraction des associations
-            $associations = $metadata->associationMappings;
-            var_dump($associations); // Pour voir toutes les associations disponibles
-
             // Extraction des relations (ManyToOne, OneToOne, ManyToMany, OneToMany)
             foreach ($metadata->associationMappings as $association => $mapping) {
 
-                $io->note(sprintf('Association: %s', $association));
                 $io->note(sprintf('Association: %s, Type: %s', $association, $mapping['type']));
 
                 // On ne traite que les associations qui existent dans les métadonnées
@@ -165,6 +160,7 @@ class AccountReviewCommand extends Command
                 }
 
                 if (in_array($association, $excludedFields, true)) {
+                    $io->warning(sprintf('Association exclue: %s', $association));
                     continue;
                 }
 
@@ -174,21 +170,26 @@ class AccountReviewCommand extends Command
                     continue;
                 }
 
-                $relatedEntity = $entity->$getter();
+                try {
+                    $relatedEntity = $entity->$getter();
 
-                // Gestion des relations ManyToOne et OneToOne (relation unique)
-                if ($relatedEntity !== null && ($mapping['type'] === \Doctrine\ORM\Mapping\ClassMetadata::MANY_TO_ONE ||
-                        $mapping['type'] === \Doctrine\ORM\Mapping\ClassMetadata::ONE_TO_ONE)) {
-                    $entityData[$association] = method_exists($relatedEntity, '__toString') ? (string)$relatedEntity : $relatedEntity->getId();
-                }
-
-                // Gestion des relations OneToMany et ManyToMany (collection)
-                elseif ($relatedEntity instanceof \Doctrine\Common\Collections\Collection) {
-                    $entityData[$association] = [];
-
-                    foreach ($relatedEntity as $relatedItem) {
-                        $entityData[$association][] = method_exists($relatedItem, '__toString') ? (string)$relatedItem : $relatedItem->getId();
+                    // Gestion des relations ManyToOne et OneToOne (relation unique)
+                    if ($relatedEntity !== null && ($mapping['type'] === \Doctrine\ORM\Mapping\ClassMetadata::MANY_TO_ONE ||
+                            $mapping['type'] === \Doctrine\ORM\Mapping\ClassMetadata::ONE_TO_ONE)) {
+                        $entityData[$association] = method_exists($relatedEntity, '__toString') ? (string)$relatedEntity : $relatedEntity->getId();
                     }
+
+                    // Gestion des relations OneToMany et ManyToMany (collection)
+                    elseif ($relatedEntity instanceof \Doctrine\Common\Collections\Collection) {
+                        $entityData[$association] = [];
+
+                        foreach ($relatedEntity as $relatedItem) {
+                            $entityData[$association][] = method_exists($relatedItem, '__toString') ? (string)$relatedItem : $relatedItem->getId();
+                        }
+                    }
+                } catch (\Exception $e) {
+                    $io->warning(sprintf('Erreur lors de l\'extraction de l\'association %s: %s', $association, $e->getMessage()));
+                    continue; // Continue même en cas d'erreur
                 }
             }
 
