@@ -175,9 +175,7 @@ class AccountReviewCommand extends Command
                     if ($relatedEntity !== null && ($mapping['type'] === \Doctrine\ORM\Mapping\ClassMetadata::MANY_TO_ONE ||
                             $mapping['type'] === \Doctrine\ORM\Mapping\ClassMetadata::ONE_TO_ONE)) {
                         $entityData[$association] = method_exists($relatedEntity, '__toString') ? (string)$relatedEntity : $relatedEntity->getId();
-                    }
-
-                    // Gestion des relations OneToMany et ManyToMany (collection)
+                    } // Gestion des relations OneToMany et ManyToMany (collection)
                     elseif ($relatedEntity instanceof \Doctrine\Common\Collections\Collection) {
                         $entityData[$association] = [];
 
@@ -236,7 +234,15 @@ class AccountReviewCommand extends Command
         $email = (new Email())
             ->from($emitter)
             ->subject(sprintf('Revue de compte %s - Export %s', $className, date('d/m/Y')))
-            ->text('Veuillez trouver ci-joint l\'export des données utilisateurs.')
+            ->html(
+                "<body>
+                        <h2 style='font-family: Arial, sans-serif;'>Entité $className</h2>
+                        <p style='margin: 0; font-family: Arial, sans-serif;'>Bonjour,</p>
+                        <p style='margin: 0; font-family: Arial, sans-serif;'>Vous trouverez en pièce jointe les données extraites au format $format.</p>
+                        <p style='margin: 0; font-family: Arial, sans-serif;'>Cordialement,</p>
+                     </body>
+                      "
+            )
             ->attach($content, $fileName, sprintf('application/%s', $format));
 
         foreach ($recipients as $recipient) {
