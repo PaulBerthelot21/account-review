@@ -66,8 +66,8 @@ class AccountReviewCommand extends Command
             ->addOption(
                 'recipient',
                 'r',
-                InputOption::VALUE_OPTIONAL,
-                'Adresse email du destinataire'
+                InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
+                'Adresse email du ou des destinataires'
             );
     }
 
@@ -78,6 +78,7 @@ class AccountReviewCommand extends Command
         try {
             $entitiesClasses = $this->resolveEntityClass($input, $io);
             foreach ($entitiesClasses as $entityClass) {
+                $io->section(sprintf('Extraction des données pour l\'entité %s', $entityClass));
                 $this->extractData($input, $output, $io, $entityClass);
             }
             return 0; // Command::SUCCESS
@@ -158,7 +159,6 @@ class AccountReviewCommand extends Command
                 }
 
                 if (in_array($association, $excludedFields, true)) {
-                    $io->warning(sprintf('Association exclue: %s', $association));
                     continue;
                 }
 
@@ -218,10 +218,10 @@ class AccountReviewCommand extends Command
                                       string         $entityClass)
     {
         $io = new SymfonyStyle($input, $output);
-        $recipient = $input->getOption('recipient');
+        $recipients = $input->getOption('recipient');
         $emitter = $input->getOption('emitter');
 
-        if (!$recipient) {
+        if (empty($recipients)) {
             throw new \InvalidArgumentException(
                 'L\'option --recipient est requise pour l\'envoi par email'
             );
@@ -235,13 +235,16 @@ class AccountReviewCommand extends Command
 
         $email = (new Email())
             ->from($emitter)
-            ->to($recipient)
             ->subject(sprintf('Revue de compte %s - Export %s', $className, date('d/m/Y')))
             ->text('Veuillez trouver ci-joint l\'export des données utilisateurs.')
             ->attach($content, $fileName, sprintf('application/%s', $format));
 
+        foreach ($recipients as $recipient) {
+            $email->addTo($recipient);
+        }
+
         $this->mailer->send($email);
-        $io->success(sprintf('Les données ont été envoyées par email à %s', $recipient));
+        $io->success(sprintf('Les données ont été envoyées par email à %s', implode(', ', $recipients)));
     }
 
     private function handleLocalMethod(InputInterface $input, OutputInterface $output, string $content, string $format,

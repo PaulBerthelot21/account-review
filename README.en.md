@@ -1,6 +1,6 @@
 # AccountReview
 
-**AccountReview** is a Symfony bundle designed to extract user data as part of an ISO 27001 audit. It provides functionality to retrieve and export user information in various formats (JSON, CSV, XML).
+**AccountReview** is a Symfony bundle designed to extract data from entities. It offers features to retrieve and export information in different formats (JSON, CSV, XML).
 
 ## Table of Contents
 
@@ -8,11 +8,11 @@
 - [Prerequisites](#prerequisites)
 - [Design and Symfony Version](#design-and-symfony-version)
 - [Configuration](#configuration)
-    - [Mailer Configuration](#mailer-configuration)
+  - [Mailer Configuration](#mailer-configuration)
 - [Usage](#usage)
-    - [Basic Options](#basic-options)
-    - [Local Export](#local-export)
-    - [Email Sending](#email-sending)
+  - [Basic Options](#basic-options)
+  - [Local Export](#local-export)
+  - [Email Sending](#sending-by-email)
 - [Commands](#commands)
 
 ## Installation
@@ -23,46 +23,78 @@ To install `AccountReview`, add it to your Symfony project via Composer:
 composer require cordon/account-review
 ```
 
-Then, enable the bundle by adding the following lines to your `config/bundles.php` file:
+Activate the bundle by adding the following lines to the `config/bundles.php` file:
 
 ```php
 return [
     // ...
-    Cordon\AccountReview\CordonAccountReviewBundle::class => ['all' => true],
+    Cordon\AccountReview\AccountReviewBundle::class => ['all' => true],
 ];
 ```
 
 ## Prerequisites
 
 * PHP 7.4 or higher
-* Symfony 4.4, 5.x, 6.x or 7.0
+* Symfony 4.4, 5.x, 6.x, or 7.0
 * Doctrine ORM
 * Symfony Mailer (for email sending)
 
 ## Design and Symfony Version
 
-The bundle is compatible with Symfony versions 4.4 through 7.0.
+The bundle is compatible with Symfony versions 4.4 to 7.0.
 
-Due to the need for compatibility across Symfony versions 4.4 to 7.0, new features from Symfony 5.0 and 6.0 are not utilized.
+The need for compatibility with Symfony versions 4.4 to 7.0 means that new features from Symfony 5.0 and 6.0 are not used.
 
 ## Configuration
 
 ### Mailer Configuration
-To use the email sending functionality, configure the mailer DSN in your .env file:
+
+Configure the mailer DSN in your .env file:
 
 ```dotenv
 MAILER_DSN=smtp://user:pass@smtp.example.com:25
 ```
 
-Another example for using a MailCatcher with Docker:
+Example for MailCatcher with Docker:
 
 ```dotenv
 MAILER_DSN=smtp://host.docker.internal:1025
 ```
 
+### Entity Configuration
+
+Add the `cordon.exportable_entity` tag to entities in `services.yaml`:
+
+```yaml
+services:
+  App\Entity\User:
+    tags:
+      - { name: 'cordon.exportable_entity' }
+
+  App\Entity\Customer:
+    tags:
+      - { name: 'cordon.exportable_entity' }
+```
+
+### Excluding Properties
+
+Exclude properties in `services.yaml`:
+
+```yaml
+cordon.account_review.entity_locator:
+  class: Cordon\AccountReview\EntityLocator
+    arguments:
+      $config:
+        entities:
+          App\Entity\User:
+            exclude_fields: [ 'roles', 'password', '...' ]
+          App\Entity\Customer:  
+            exclude_fields: [ 'imageName', '...' ]
+```
+
 ## Usage
 
-To extract user data, run the following command:
+Extract user data:
 
 ```bash
 php bin/console app:account-review
@@ -70,55 +102,58 @@ php bin/console app:account-review
 
 ### Basic Options
 
-The main command supports several options:
 ```
 php bin/console app:account-review [options]
 ```
+
 **Available Options:**
-* * --entity-tag or -t : Tag of the entity to use
-* --class or -c: User entity class to use (default: 'App\Entity\User')
+
 * --method or -m: Data sending method (log, local, mail) (default: 'log')
 * --format or -f: Output format (json, csv, xml) (default: 'json')
 
-### Example
+### Default Export
 
-To use the **--entity-tag** option, you need to add the tag to the User entity:
-```bash
-php bin/console app:account-review --entity-tag=user --method=log --format=csv
-``` 
+Export user data in JSON format:
 
-Or you can use the **--class** option to specify the User entity class:
 ```bash
-php bin/console app:account-review --class=App\Entity\User --method=log --format=csv
+php bin/console app:account-review
 ```
-
-If both the **--entity-tag** and **--class** options are used simultaneously, the **--entity-tag** option will take precedence.
 
 ### Local Export
-To save data to a local file:
+
+Save data locally:
 
 ```bash
-php bin/console app:account-review --method=local --format=json --output=users.json
+php bin/console app:account-review --method=local --format=json
 ```
 
-### Email Sending
-To send data via email:
+### Sending by Email
+
+Send data by email:
 
 ```bash
 php bin/console app:account-review --method=mail --format=csv --recipient=audit@example.com --emitter=no-reply@company.com
 ```
 
+Add multiple recipients:
+
+```bash
+--recipient=audit@example.com --recipient=manager@example.com
+```
+
 **Email-specific Options:**
-* --recipient or -r: Recipient email address
+
+* --recipient or -r: Recipient email address(es)
 * --emitter or -em: Sender email address (default: 'no-reply@account-review.com')
 
 ## Commands
 
-To display the list of available commands, run:
+List available commands:
 
 ```bash
 php bin/console app:account-review --help
 ```
 
 ## License
-This bundle is licensed under the MIT License.
+
+Licensed under the MIT License.

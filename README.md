@@ -118,7 +118,11 @@ php bin/console app:account-review [options]
 
 ### Export par défaut
 
-La commande par défaut exporte les données des utilisateurs dans la console en format JSON.
+La commande par défaut exporte les données des utilisateurs dans la console en format JSON :
+
+```bash
+php bin/console app:account-review
+```
 
 ### Export local
 
@@ -138,9 +142,15 @@ Pour envoyer les données par email :
 php bin/console app:account-review --method=mail --format=csv --recipient=audit@example.com --emitter=no-reply@company.com
 ```
 
+_On peut rajouter un ou plusieurs destinataires en ajoutant un --recipient pour chaque adresse email._
+
+```bash
+--recipient=audit@example.com --recipient=manager@example.com
+```
+
 **Options spécifiques à l'email :**
 
-* --recipient ou -r : Adresse email du destinataire
+* --recipient ou -r : Adresse email du ou des destinataires
 * --emitter ou -em : Adresse email de l'émetteur (défaut: 'no-reply@account-review.com')
 
 ## Commandes
