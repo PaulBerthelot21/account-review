@@ -150,6 +150,14 @@ class AccountReviewCommand extends Command
 
             // Extraction des relations (ManyToOne, OneToOne, ManyToMany, OneToMany)
             foreach ($metadata->associationMappings as $association => $mapping) {
+
+                $io->note(sprintf('Association: %s', $association));
+
+                // On ne traite que les associations qui existent dans les métadonnées
+                if (!array_key_exists($association, $metadata->associationMappings)) {
+                    continue;
+                }
+
                 if (in_array($association, $excludedFields, true)) {
                     continue;
                 }
